@@ -1,5 +1,7 @@
 # Import TensorFlow, Keras, and matplotlib
 import sys
+import time
+from datetime import timedelta
 from tabnanny import verbose
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -7,12 +9,14 @@ import numpy as np
 import ssl
 from tensorflow import keras
 from keras.regularizers import l2
- 
+
+# Time the train time
+start_time = time.monotonic()
+
 # Download the CIFAR10 dataset
 (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
 
 # Normalise pixel values
-#train_images, test_images = train_images / 255.0, test_images / 255.0
 train_images = train_images.astype('float32')
 test_images = test_images.astype('float32')
 train_mean = np.mean(train_images, axis=0)
@@ -65,13 +69,13 @@ model.add(keras.layers.BatchNormalization())
 model.add(keras.layers.Conv2D(1024, (3, 3), activation='selu', kernel_initializer='he_uniform', padding='same'))
 model.add(keras.layers.BatchNormalization())
 model.add(keras.layers.MaxPooling2D((2, 2)))
-model.add(keras.layers.Dropout(0.5))
+model.add(keras.layers.Dropout(0.4))
 
 # Flatten the last output tensor into a Dense layer
 model.add(keras.layers.Flatten())
 model.add(keras.layers.Dense(512, activation='selu', kernel_initializer='he_uniform'))
 model.add(keras.layers.BatchNormalization())
-model.add(keras.layers.Dropout(0.6))
+model.add(keras.layers.Dropout(0.5))
 model.add(keras.layers.Dense(10, activation="softmax"))
 
 # Display a summary of the model
@@ -90,41 +94,67 @@ model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr_schedule, momentum
 
 history = model.fit(train_images, train_labels, epochs=100, batch_size=64, validation_data=(test_images, test_labels))
 
+# Save accuracy for comparison 
+pre_aug = history.history['val_accuracy']
+
 # Evaluate the model
 # Aim for val_loss decreasing and val_acc increasing
-plt.plot(history.history['val_accuracy'], label='val_accuracy1')
-plt.plot(history.history['val_loss'], label='val_loss1')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy/Loss')
-plt.ylim([0.2, 1])
-plt.legend(loc='lower right')
-
 test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
 
 # Print the test accuracy and test error
 print("Test Accuracy:", str(round(test_acc * 100)))
 print("Test Error:", str(100-round(test_acc * 100)))
 
-# Create augmented data and a generator with batch size 32
+# Create augmented data and a generator
 data_generator = tf.keras.preprocessing.image.ImageDataGenerator(width_shift_range=0.4, height_shift_range=0.4, horizontal_flip=True, zoom_range=0.33)
 train_generator = data_generator.flow(train_images, train_labels)
 
 # Fit the model to the augmented data
-steps = train_images.shape[0] // 32
-history = model.fit(train_generator, validation_data=(test_images, test_labels), steps_per_epoch=steps, epochs=600)
+steps = train_images.shape[0] // 16
+history = model.fit(train_generator, validation_data=(test_images, test_labels), steps_per_epoch=steps, epochs=500)
 
-# Evaluate the model
-# Aim for val_loss decreasing and val_acc increasing
-plt.plot(history.history['val_accuracy'], label='val_accuracy2')
-plt.plot(history.history['val_loss'], label='val_loss2')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy/Loss')
-plt.ylim([0.2, 1])
-plt.legend(loc='lower right')
-plt.show()
-
+# Evaluate the model post augmentation
 test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
 
 # Print the test accuracy and test error
 print("Test Accuracy:", str(round(test_acc * 100)))
 print("Test Error:", str(100-round(test_acc * 100)))
+
+# End timer for training
+end_time = time.monotonic()
+print("Training time: ", timedelta(seconds=end_time - start_time))
+
+# create subplots 
+
+plot1 = plt.figure(1)
+plt.title('Test Accuracy pre and post augmentation')
+plt.plot(history.history['val_accuracy'], color = 'orange', label='Post Augmentation')
+plt.plot(pre_aug, color ='blue', label = 'Pre Augmentation')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.ylim([0.2, 1])
+plt.legend(loc='lower right')
+
+plot2 = plt.figure(2)
+plt.title('Test/Train Accuracies')
+plt.plot(history.history['accuracy'], color ='blue', label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], color='orange', label='Test Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.ylim([0.2, 1])
+plt.legend(loc='lower right')
+
+plot3 = plt.figure(3)
+plt.title('Cross Entropy Loss')
+plt.plot(history.history['loss'], color='blue', label='Train Loss')
+plt.plot(history.history['val_loss'], color='orange', label='test Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(loc='lower right')
+
+plot1.show()
+plot2.show()
+plot3.show()
+
+# Keep the plots alive
+input()
