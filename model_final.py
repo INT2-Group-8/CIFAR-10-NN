@@ -92,7 +92,7 @@ lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
 # Compile and train the model
 model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr_schedule, momentum = 0.85, nesterov=True), loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False), metrics=['accuracy'])
 
-history = model.fit(train_images, train_labels, epochs=100, batch_size=64, validation_data=(test_images, test_labels))
+history = model.fit(train_images, train_labels, epochs=2, batch_size=64, validation_data=(test_images, test_labels))
 
 # Save accuracy for comparison 
 pre_aug = history.history['val_accuracy']
@@ -108,10 +108,10 @@ print("Test Error:", str(100-round(test_acc * 100)))
 # Create augmented data and a generator
 data_generator = tf.keras.preprocessing.image.ImageDataGenerator(width_shift_range=0.4, height_shift_range=0.4, horizontal_flip=True, zoom_range=0.33)
 train_generator = data_generator.flow(train_images, train_labels)
-
+train_generator.batch_size = 16
 # Fit the model to the augmented data
-steps = train_images.shape[0] // 16
-history = model.fit(train_generator, validation_data=(test_images, test_labels), steps_per_epoch=steps, epochs=500)
+steps = len(train_images) // 16
+history = model.fit(train_generator, validation_data=(test_images, test_labels), steps_per_epoch=steps, validation_steps=len(test_images)//16,epochs=500)
 
 # Evaluate the model post augmentation
 test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
