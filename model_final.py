@@ -85,7 +85,7 @@ model.summary()
 initial_learning_rate = 0.05
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate,
-    decay_steps=3124,
+    decay_steps=3125,
     decay_rate=0.988,
     staircase=True)
 
